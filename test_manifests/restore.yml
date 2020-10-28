@@ -1,0 +1,18 @@
+apiVersion: topolvm.cybozu.com/v1
+kind: Restore
+metadata:
+  name: myrestore
+spec:
+  backupStorageType: S3
+  s3:
+    path: bla.tar.gz
+    endpoint: "https://blablub.de"
+    httpProxy: "httpProxy"
+    httpsProxy: "httpsProxy"
+    secret: "s3-creds"
+    verifyTLS: False
+    synchronousRestore: True
+    
+  # dataSource:
+  #   action: prepopulate
+  #   key: 123456

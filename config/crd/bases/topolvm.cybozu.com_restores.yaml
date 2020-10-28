@@ -6,20 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
-  name: logicalvolumes.topolvm.cybozu.com
+  name: restores.topolvm.cybozu.com
 spec:
   group: topolvm.cybozu.com
   names:
-    kind: LogicalVolume
-    listKind: LogicalVolumeList
-    plural: logicalvolumes
-    singular: logicalvolume
-  scope: Cluster
+    kind: Restore
+    listKind: RestoreList
+    plural: restores
+    singular: restore
+  scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: LogicalVolume is the Schema for the logicalvolumes API
+        description: Restore is the Schema for the restore API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -30,54 +30,41 @@ spec:
           metadata:
             type: object
           spec:
-            description: LogicalVolumeSpec defines the desired state of LogicalVolume
+            description: RestoreSpec defines where data of prepopulated pvs come from
             properties:
-              dataSource:
-                description: DataSource is the Schema for the prepopulated pvs
-                properties:
-                  name:
-                    type: string
-                  namespace:
-                    type: string
-                  sourceType:
-                    type: string
-                required:
-                - name
-                type: object
-              deviceClass:
-                type: string
-              name:
+              backupStorageType:
                 description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run "make" to regenerate code after modifying this file'
                 type: string
-              nodeName:
-                type: string
-              size:
-                anyOf:
-                - type: integer
-                - type: string
-                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                x-kubernetes-int-or-string: true
+              s3:
+                description: S3 defines how to access a S3 bucket
+                properties:
+                  endpoint:
+                    type: string
+                  httpProxy:
+                    type: string
+                  httpsProxy:
+                    type: string
+                  path:
+                    type: string
+                  secret:
+                    type: string
+                  verifyTLS:
+                    type: boolean
+                required:
+                - path
+                type: object
+              synchronousRestore:
+                type: boolean
             required:
-            - name
-            - nodeName
-            - size
+            - backupStorageType
+            - s3
             type: object
           status:
-            description: LogicalVolumeStatus defines the observed state of LogicalVolume
+            description: RestoreStatus defines the observed state of Restore
             properties:
-              code:
-                description: A Code is an unsigned 32-bit error code as defined in the gRPC spec.
-                format: int32
-                type: integer
-              currentSize:
-                anyOf:
-                - type: integer
-                - type: string
-                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                x-kubernetes-int-or-string: true
               message:
                 type: string
-              volumeID:
+              state:
                 description: 'INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run "make" to regenerate code after modifying this file'
                 type: string
             type: object

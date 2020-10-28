@@ -4,3 +4,8 @@ device-classes:
     volume-group: myvg1
     default: true
     spare-gb: 10
+backup:
+  script-path: "/usr/local/bin/topolvm-backup.sh"
+  workdir: "/var/topolvm"
+restore:
+  script-path: "/usr/local/bin/topolvm-restore.sh"

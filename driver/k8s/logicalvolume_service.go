@@ -9,6 +9,7 @@ import (
 
 	"github.com/topolvm/topolvm"
 	topolvmv1 "github.com/topolvm/topolvm/api/v1"
+	"github.com/topolvm/topolvm/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -73,6 +74,84 @@ func (s *LogicalVolumeService) CreateVolume(ctx context.Context, node, dc, name 
 			NodeName:    node,
 			DeviceClass: dc,
 			Size:        *resource.NewQuantity(requestGb<<30, resource.BinarySI),
+		},
+	}
+
+	existingLV := new(topolvmv1.LogicalVolume)
+	err := s.Get(ctx, client.ObjectKey{Name: name}, existingLV)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return "", err
+		}
+
+		err := s.Create(ctx, lv)
+		if err != nil {
+			return "", err
+		}
+		logger.Info("created LogicalVolume CRD", "name", name)
+	} else {
+		// LV with same name was found; check compatibility
+		// skip check of capabilities because (1) we allow both of two access types, and (2) we allow only one access mode
+		// for ease of comparison, sizes are compared strictly, not by compatibility of ranges
+		if !existingLV.IsCompatibleWith(lv) {
+			return "", status.Error(codes.AlreadyExists, "Incompatible LogicalVolume already exists")
+		}
+		// compatible LV was found
+	}
+
+	for {
+		logger.Info("waiting for setting 'status.volumeID'", "name", name)
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(1 * time.Second):
+		}
+
+		var newLV topolvmv1.LogicalVolume
+		err := s.Get(ctx, client.ObjectKey{Name: name}, &newLV)
+		if err != nil {
+			logger.Error(err, "failed to get LogicalVolume", "name", name)
+			return "", err
+		}
+		if newLV.Status.VolumeID != "" {
+			logger.Info("end k8s.LogicalVolume", "volume_id", newLV.Status.VolumeID)
+			return newLV.Status.VolumeID, nil
+		}
+		if newLV.Status.Code != codes.OK {
+			err := s.Delete(ctx, &newLV)
+			if err != nil {
+				// log this error but do not return this error, because newLV.Status.Message is more important
+				logger.Error(err, "failed to delete LogicalVolume")
+			}
+			return "", status.Error(newLV.Status.Code, newLV.Status.Message)
+		}
+	}
+}
+
+// CreateVolumeFromSource creates volume from data source
+func (s *LogicalVolumeService) CreateVolumeFromSource(ctx context.Context, node, dc, name string, requestGb int64, source *csi.VolumeContentSource, params map[string]string) (string, error) {
+	logger.Info("k8s.CreateVolume called", "name", name, "node", node, "size_gb", requestGb)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	lv := &topolvmv1.LogicalVolume{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "LogicalVolume",
+			APIVersion: "topolvm.cybozu.com/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: topolvmv1.LogicalVolumeSpec{
+			Name:        name,
+			NodeName:    node,
+			DeviceClass: dc,
+			Size:        *resource.NewQuantity(requestGb<<30, resource.BinarySI),
+			DataSource: topolvmv1.DataSource{
+				Name:       source.GetVolume().GetVolumeId(),
+				Namespace:  params["csi.storage.k8s.io/pvc/namespace"],
+				SourceType: params["csi.storage.k8s.io/pvc/datasource/kind"],
+			},
 		},
 	}
 

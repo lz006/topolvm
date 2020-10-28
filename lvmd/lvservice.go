@@ -4,17 +4,21 @@ import (
 	"context"
 
 	"github.com/cybozu-go/log"
+	"github.com/topolvm/topolvm/lvmd/backup"
 	"github.com/topolvm/topolvm/lvmd/command"
 	"github.com/topolvm/topolvm/lvmd/proto"
+	"github.com/topolvm/topolvm/lvmd/restore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // NewLVService creates a new LVServiceServer
-func NewLVService(mapper *DeviceClassManager, notifyFunc func()) proto.LVServiceServer {
+func NewLVService(mapper *DeviceClassManager, notifyFunc func(), backupConf *backup.BaseConf, restoreConf *restore.BaseConf) proto.LVServiceServer {
 	return &lvService{
 		mapper:     mapper,
 		notifyFunc: notifyFunc,
+		backup:     backupConf,
+		restore:    restoreConf,
 	}
 }
 
@@ -22,6 +26,8 @@ type lvService struct {
 	proto.UnimplementedLVServiceServer
 	mapper     *DeviceClassManager
 	notifyFunc func()
+	backup     *backup.BaseConf
+	restore    *restore.BaseConf
 }
 
 func (s *lvService) notify() {
@@ -57,7 +63,15 @@ func (s *lvService) CreateLV(_ context.Context, req *proto.CreateLVRequest) (*pr
 		return nil, status.Errorf(codes.ResourceExhausted, "no enough space left on VG: free=%d, requested=%d", free, requested)
 	}
 
-	lv, err := vg.CreateVolume(req.GetName(), requested, req.GetTags())
+	var lv *command.LogicalVolume
+	dataSource := req.GetDataSource()
+
+	if dataSource != nil {
+		lv, err = vg.CreateVolumeFromSource(req.GetName(), requested, req.GetTags(), dataSource, s.restore)
+	} else {
+		lv, err = vg.CreateVolume(req.GetName(), requested, req.GetTags())
+	}
+
 	if err != nil {
 		log.Error("failed to create volume", map[string]interface{}{
 			"name":      req.GetName(),
@@ -200,4 +214,38 @@ func (s *lvService) ResizeLV(_ context.Context, req *proto.ResizeLVRequest) (*pr
 	})
 
 	return &proto.Empty{}, nil
+}
+
+func (s lvService) CreateBackup(_ context.Context, req *proto.CreateBackupRequest) (*proto.CreateBackupResponse, error) {
+	log.Info("Backup creation requested : ", map[string]interface{}{
+		"name":   req.GetBackup().GetName(),
+		"volume": req.GetBackup().GetVolumeHandle(),
+	})
+	backupState := proto.BackupState{
+		Name:  "",
+		State: proto.StateType_ERROR,
+		Msg:   "",
+	}
+
+	// Call via nohup script for backup creation
+	if status, err := command.CreateBackup(req.Backup, s.backup); err != nil {
+		log.Error("Backup creation failed", map[string]interface{}{
+			"OS error": err.Error(),
+		})
+		backupState.Msg = err.Error()
+		backupState.State = proto.StateType_ERROR
+		backupState.Name = req.Backup.Name
+	} else {
+		backupState.Msg = ""
+		backupState.State = status
+		backupState.Name = req.Backup.Name
+	}
+
+	// Check for result files
+	// TODO
+
+	// Create response
+	return &proto.CreateBackupResponse{
+		BackupState: &backupState,
+	}, nil
 }

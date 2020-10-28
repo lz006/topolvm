@@ -11,7 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/topolvm/topolvm/lvmd/restore"
+
 	"github.com/cybozu-go/log"
+	"github.com/topolvm/topolvm/lvmd/backup"
+	"github.com/topolvm/topolvm/lvmd/proto"
 )
 
 const (
@@ -260,6 +264,147 @@ func (g *VolumeGroup) ListVolumes() ([]*LogicalVolume, error) {
 		))
 	}
 	return ret, nil
+}
+
+// CreateBackup creates a backup of a logical volumes' content.
+// Backup will be achieved by utilizing snapshot function of lvm command.
+// Created snapshot only lives as long as it takes to transfer content
+// to a storage backend.
+func CreateBackup(source *proto.Backup, backupConf *backup.BaseConf) (proto.StateType, error) {
+	// If something went wrong we will see a file named after backup manifest CRD and lvm volume
+	// containing an error message (hopefully)
+
+	stateFileName := fmt.Sprintf("%s-%s", source.GetName(), strings.ReplaceAll(source.GetVolumeHandle(), "/", "-"))
+
+	errorFilePath := fmt.Sprintf("%s%s%s", (*backupConf).Workdir, "/backup/error/", stateFileName)
+
+	if _, err := os.Stat(errorFilePath); err == nil {
+		data, err := ioutil.ReadFile(errorFilePath)
+		if err != nil {
+			return proto.StateType_ERROR, err
+		}
+		errMsg := errors.New(string(data))
+		if err := os.RemoveAll(errorFilePath); err != nil {
+			log.Error("Could not clean up error file, manual actions required", map[string]interface{}{
+				"path":     errorFilePath,
+				"os error": err.Error(),
+			})
+		}
+		return proto.StateType_ERROR, errMsg
+	}
+
+	// If backup is complete we should see a file named after backup manifest CRD
+	completeFilePath := fmt.Sprintf("%s%s%s", (*backupConf).Workdir, "/backup/complete/", stateFileName)
+	if _, err := os.Stat(completeFilePath); err == nil {
+		if err := os.RemoveAll(completeFilePath); err != nil {
+			log.Error("Could not clean up complete state dir, manual actions required", map[string]interface{}{
+				"path":     completeFilePath,
+				"os error": err.Error(),
+			})
+		}
+		return proto.StateType_COMPLETE, nil
+	}
+
+	var backupType string
+	if source.GetDataSource().GetS3() != nil {
+		backupType = "S3"
+	}
+	arguments := []string{
+		"PLACEHOLDER", // necessary placeholder that is going to be overwritten by exec
+	}
+
+	backupTypeOptions := map[string]string{
+		"n": source.GetName(),
+		"v": source.GetVolumeHandle(),
+		"b": backupType,
+		"e": source.GetDataSource().GetS3().GetEndpoint(),
+		"p": source.GetDataSource().GetS3().GetPath(),
+		"h": source.GetDataSource().GetS3().GetHttpProxy(),
+		"s": source.GetDataSource().GetS3().GetHttpsProxy(),
+		"y": strconv.FormatBool(source.GetDataSource().GetS3().GetVerifyTls()),
+		"a": source.GetDataSource().GetS3().GetAccessKeyId(),
+		"k": source.GetDataSource().GetS3().GetSecretAccessKey(),
+		"t": source.GetDataSource().GetS3().GetSessionToken(),
+		"c": source.GetDataSource().GetS3().GetEncryptionKey(),
+	}
+
+	for k, v := range backupTypeOptions {
+		if v != "" {
+			arguments = append(arguments, fmt.Sprintf("-%s%s", k, v))
+		}
+	}
+	cmdShell := &exec.Cmd{
+		Path:   (*backupConf).ScriptPath,
+		Args:   arguments,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+
+	if err := cmdShell.Start(); err != nil {
+		return proto.StateType_ERROR, err
+	}
+	return proto.StateType_INPROGRESS, nil
+
+}
+
+// CreateVolumeFromSource creates a pre-populated logical volume in this volume group.
+// name is a name of creating volume. size is volume size in bytes. volTags is a
+// list of tags to add to the volume.
+func (g *VolumeGroup) CreateVolumeFromSource(name string, size uint64, tags []string, source *proto.DataSource, restoreConf *restore.BaseConf) (*LogicalVolume, error) {
+	lv, err := g.CreateVolume(name, size, tags)
+	if err != nil {
+		return nil, err
+	}
+
+	var restoreType string
+	if source.GetS3() != nil {
+		restoreType = "S3"
+	}
+	arguments := []string{
+		"PLACEHOLDER", // necessary placeholder that is going to be overwritten by exec
+	}
+
+	//var arguments []string
+
+	restoreTypeOptions := map[string]string{
+		"v": lv.FullName(),
+		"b": restoreType,
+		"e": source.GetS3().GetEndpoint(),
+		"p": source.GetS3().GetPath(),
+		"h": source.GetS3().GetHttpProxy(),
+		"s": source.GetS3().GetHttpsProxy(),
+		"y": strconv.FormatBool(source.GetS3().GetVerifyTls()),
+		"a": source.GetS3().GetAccessKeyId(),
+		"k": source.GetS3().GetSecretAccessKey(),
+		"t": source.GetS3().GetSessionToken(),
+		"c": source.GetS3().GetEncryptionKey(),
+	}
+
+	for k, v := range restoreTypeOptions {
+		if strings.Trim(v, " ") != "" {
+			arguments = append(arguments, fmt.Sprintf("-%s%s", k, v))
+		}
+	}
+
+	cmdShell := &exec.Cmd{
+		Path:   restoreConf.ScriptPath,
+		Args:   arguments,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+
+	if source.GetSynchronousRestore() {
+		if err := cmdShell.Run(); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := cmdShell.Start(); err != nil {
+			return nil, err
+		}
+	}
+
+	return lv, nil
+
 }
 
 // CreateVolume creates logical volume in this volume group.

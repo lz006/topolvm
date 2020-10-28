@@ -45,7 +45,8 @@ func (s controllerService) CreateVolume(ctx context.Context, req *csi.CreateVolu
 		"accessibility_requirements", req.GetAccessibilityRequirements().String())
 
 	if source != nil {
-		return nil, status.Error(codes.InvalidArgument, "volume_content_source not supported")
+		ctrlLogger.Info("Request for volume with pre-populated data", "VolumeId", source.GetVolume().GetVolumeId())
+		//return nil, status.Error(codes.InvalidArgument, "volume_content_source not supported")
 	}
 	if capabilities == nil {
 		return nil, status.Error(codes.InvalidArgument, "no volume capabilities are provided")
@@ -126,7 +127,12 @@ func (s controllerService) CreateVolume(ctx context.Context, req *csi.CreateVolu
 
 	name = strings.ToLower(name)
 
-	volumeID, err := s.lvService.CreateVolume(ctx, node, deviceClass, name, requestGb)
+	var volumeID = ""
+	if source != nil {
+		volumeID, err = s.lvService.CreateVolumeFromSource(ctx, node, deviceClass, name, requestGb, source, req.Parameters)
+	} else {
+		volumeID, err = s.lvService.CreateVolume(ctx, node, deviceClass, name, requestGb)
+	}
 	if err != nil {
 		_, ok := status.FromError(err)
 		if !ok {
@@ -144,6 +150,7 @@ func (s controllerService) CreateVolume(ctx context.Context, req *csi.CreateVolu
 					Segments: map[string]string{topolvm.TopologyNodeKey: node},
 				},
 			},
+			ContentSource: source,
 		},
 	}, nil
 }
@@ -271,6 +278,7 @@ func (s controllerService) ControllerGetCapabilities(context.Context, *csi.Contr
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_GET_CAPACITY,
 		csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
+		csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 	}
 
 	csiCaps := make([]*csi.ControllerServiceCapability, len(capabilities))

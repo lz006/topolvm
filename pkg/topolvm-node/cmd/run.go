@@ -78,10 +78,23 @@ func subMain() error {
 		conn,
 	)
 
+	bucontroller := controllers.NewBackupReconciler(
+		mgr.GetClient(),
+		ctrl.Log.WithName("controllers").WithName("Backup"),
+		nodename,
+		conn,
+	)
+
 	if err := lvcontroller.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LogicalVolume")
 		return err
 	}
+
+	if err := bucontroller.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Backup")
+		return err
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	// Add health checker to manager

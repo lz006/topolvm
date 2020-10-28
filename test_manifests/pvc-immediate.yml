@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: topo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: topolvm-provisioner-immediate
+  dataSource:
+    kind: Restore
+    apiGroup: topolvm.cybozu.com
+    name: myrestore
+    
+  # dataSource:
+  #   action: prepopulate
+  #   key: 123456

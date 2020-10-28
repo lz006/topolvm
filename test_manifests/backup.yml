@@ -1,0 +1,15 @@
+apiVersion: topolvm.cybozu.com/v1
+kind: Backup
+metadata:
+  name: mybackup
+spec:
+  kind: pvc
+  name: topo
+  backupStorageType: S3
+  s3:
+    path: bla.tar.gz
+    endpoint: "https://blablub.de"
+    httpProxy: "httpProxy"
+    httpsProxy: "httpsProxy"
+    secret: "s3-creds"
+    verifyTLS: False

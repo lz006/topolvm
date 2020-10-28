@@ -14,8 +14,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/topolvm/topolvm"
 	"github.com/topolvm/topolvm/lvmd"
+	"github.com/topolvm/topolvm/lvmd/backup"
 	"github.com/topolvm/topolvm/lvmd/command"
 	"github.com/topolvm/topolvm/lvmd/proto"
+	"github.com/topolvm/topolvm/lvmd/restore"
 	"google.golang.org/grpc"
 	"sigs.k8s.io/yaml"
 )
@@ -28,6 +30,9 @@ type Config struct {
 	SocketName string `json:"socket-name"`
 	// DeviceClasses is
 	DeviceClasses []*lvmd.DeviceClass `json:"device-classes"`
+	Backup        *backup.BaseConf    `json:"backup"`
+
+	Restore *restore.BaseConf `json:"restore"`
 }
 
 var config = &Config{
@@ -98,7 +103,7 @@ func subMain() error {
 	manager := lvmd.NewDeviceClassManager(config.DeviceClasses)
 	vgService, notifier := lvmd.NewVGService(manager)
 	proto.RegisterVGServiceServer(grpcServer, vgService)
-	proto.RegisterLVServiceServer(grpcServer, lvmd.NewLVService(manager, notifier))
+	proto.RegisterLVServiceServer(grpcServer, lvmd.NewLVService(manager, notifier, config.Backup, config.Restore))
 	well.Go(func(ctx context.Context) error {
 		return grpcServer.Serve(lis)
 	})

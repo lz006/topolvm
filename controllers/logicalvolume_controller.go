@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/topolvm/topolvm"
@@ -10,8 +11,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -182,7 +185,68 @@ func (r *LogicalVolumeReconciler) createLV(ctx context.Context, log logr.Logger,
 			return nil
 		}
 
-		resp, err := r.lvService.CreateLV(ctx, &proto.CreateLVRequest{Name: string(lv.UID), DeviceClass: lv.Spec.DeviceClass, SizeGb: uint64(reqBytes >> 30)})
+		protoCLVR := &proto.CreateLVRequest{
+			Name:        string(lv.UID),
+			DeviceClass: lv.Spec.DeviceClass,
+			SizeGb:      uint64(reqBytes >> 30),
+		}
+
+		var restore *topolvmv1.Restore
+		if lv.Spec.DataSource.Name != "" {
+
+			dsNamespace := lv.Spec.DataSource.Namespace
+			dsName := lv.Spec.DataSource.Name
+
+			// Get Restore CRD
+			restore = new(topolvmv1.Restore)
+			if err := r.Client.Get(ctx, types.NamespacedName{Namespace: dsNamespace, Name: dsName}, restore); err != nil {
+				restore.Status.State = topolvmv1.Error
+				restore.Status.Message = fmt.Sprintf("%s: %s", "Error: ", err.Error())
+				r.Status().Update(ctx, restore)
+				return err
+			}
+
+			restore.Status.State = topolvmv1.InProgress
+			restore.Status.Message = fmt.Sprintf("%s: %s", "LV name", lv.Name)
+			r.Status().Update(ctx, restore)
+
+			// Get Secret
+			secret := new(corev1.Secret)
+			if err := r.Client.Get(ctx, types.NamespacedName{Namespace: dsNamespace, Name: restore.Spec.S3.Secret}, secret); err != nil {
+				return err
+			}
+
+			ds := proto.DataSource_S3_{
+				S3: &proto.DataSource_S3{
+					Path:            restore.Spec.S3.Path,
+					Endpoint:        restore.Spec.S3.Endpoint,
+					VerifyTls:       restore.Spec.S3.VerifyTLS,
+					HttpProxy:       restore.Spec.S3.HTTPProxy,
+					HttpsProxy:      restore.Spec.S3.HTTPSProxy,
+					AccessKeyId:     string(secret.Data["AccessKeyId"]),
+					SecretAccessKey: string(secret.Data["SecretAccessKey"]),
+					SessionToken:    string(secret.Data["SessionToken"]),
+					EncryptionKey:   string(secret.Data["EncryptionKey"]),
+				},
+			}
+
+			protoCLVR.DataSource = &proto.DataSource{
+				SynchronousRestore: restore.Spec.SynchronousRestore,
+				Type:               &ds,
+			}
+		}
+
+		resp, err := r.lvService.CreateLV(ctx, protoCLVR)
+		if lv.Spec.DataSource.Name != "" {
+			if err != nil {
+				restore.Status.State = topolvmv1.Error
+				restore.Status.Message = fmt.Sprintf("%s: %s", "Error: ", err.Error())
+			} else {
+				restore.Status.State = topolvmv1.Complete
+				restore.Status.Message = fmt.Sprintf("%s: %s", "LV name", lv.Name)
+			}
+			r.Status().Update(ctx, restore)
+		}
 		if err != nil {
 			code, message := extractFromError(err)
 			log.Error(err, message)

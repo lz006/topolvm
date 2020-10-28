@@ -32,6 +32,18 @@ spec:
           spec:
             description: LogicalVolumeSpec defines the desired state of LogicalVolume
             properties:
+              dataSource:
+                description: DataSource is the Schema for the prepopulated pvs
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                  sourceType:
+                    type: string
+                required:
+                - name
+                type: object
               deviceClass:
                 type: string
               name:

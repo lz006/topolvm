@@ -4,8 +4,14 @@
 ## Table of Contents
 
 - [lvmd/proto/lvmd.proto](#lvmd/proto/lvmd.proto)
+    - [Backup](#proto.Backup)
+    - [BackupState](#proto.BackupState)
+    - [CreateBackupRequest](#proto.CreateBackupRequest)
+    - [CreateBackupResponse](#proto.CreateBackupResponse)
     - [CreateLVRequest](#proto.CreateLVRequest)
     - [CreateLVResponse](#proto.CreateLVResponse)
+    - [DataSource](#proto.DataSource)
+    - [DataSource.S3](#proto.DataSource.S3)
     - [Empty](#proto.Empty)
     - [GetFreeBytesRequest](#proto.GetFreeBytesRequest)
     - [GetFreeBytesResponse](#proto.GetFreeBytesResponse)
@@ -16,6 +22,8 @@
     - [ResizeLVRequest](#proto.ResizeLVRequest)
     - [WatchItem](#proto.WatchItem)
     - [WatchResponse](#proto.WatchResponse)
+  
+    - [StateType](#proto.StateType)
   
     - [LVService](#proto.LVService)
     - [VGService](#proto.VGService)
@@ -35,6 +43,70 @@ The protocol consists of two services:
 - LVService provides management functions for logical volumes on the volume group.
 
 
+<a name="proto.Backup"></a>
+
+### Backup
+Represents an outstanding backup of a lv.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  | Name of backup crd manifest |
+| volume_handle | [string](#string) |  | Identifier of lv to be backed |
+| data_source | [DataSource](#proto.DataSource) |  | Specifies a data source to be created |
+
+
+
+
+
+
+<a name="proto.BackupState"></a>
+
+### BackupState
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  | Name of backup the state belongs to |
+| state | [StateType](#proto.StateType) |  | Contains state |
+| msg | [string](#string) |  | contains msg |
+
+
+
+
+
+
+<a name="proto.CreateBackupRequest"></a>
+
+### CreateBackupRequest
+Represents the input for CreateBackup
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| backup | [Backup](#proto.Backup) |  | Backup that is requested |
+
+
+
+
+
+
+<a name="proto.CreateBackupResponse"></a>
+
+### CreateBackupResponse
+Represents the response of CreateBackup.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| backup_state | [BackupState](#proto.BackupState) |  | Information about backup creation. |
+
+
+
+
+
+
 <a name="proto.CreateLVRequest"></a>
 
 ### CreateLVRequest
@@ -47,6 +119,7 @@ Represents the input for CreateLV.
 | size_gb | [uint64](#uint64) |  | Volume size in GiB. |
 | tags | [string](#string) | repeated | Tags to add to the volume during creation |
 | device_class | [string](#string) |  |  |
+| data_source | [DataSource](#proto.DataSource) |  |  |
 
 
 
@@ -62,6 +135,45 @@ Represents the response of CreateLV.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | volume | [LogicalVolume](#proto.LogicalVolume) |  | Information of the created volume. |
+
+
+
+
+
+
+<a name="proto.DataSource"></a>
+
+### DataSource
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| synchronous_restore | [bool](#bool) |  |  |
+| s3 | [DataSource.S3](#proto.DataSource.S3) |  |  |
+
+
+
+
+
+
+<a name="proto.DataSource.S3"></a>
+
+### DataSource.S3
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+| endpoint | [string](#string) |  |  |
+| verify_tls | [bool](#bool) |  |  |
+| http_proxy | [string](#string) |  |  |
+| https_proxy | [string](#string) |  |  |
+| access_key_id | [string](#string) |  |  |
+| secret_access_key | [string](#string) |  |  |
+| session_token | [string](#string) |  |  |
+| encryption_key | [string](#string) |  |  |
 
 
 
@@ -226,6 +338,19 @@ Represents the stream output from Watch.
 
  
 
+
+<a name="proto.StateType"></a>
+
+### StateType
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| INPROGRESS | 0 |  |
+| COMPLETE | 1 |  |
+| ERROR | 2 |  |
+
+
  
 
  
@@ -241,6 +366,7 @@ Service to manage logical volumes of the volume group.
 | CreateLV | [CreateLVRequest](#proto.CreateLVRequest) | [CreateLVResponse](#proto.CreateLVResponse) | Create a logical volume. |
 | RemoveLV | [RemoveLVRequest](#proto.RemoveLVRequest) | [Empty](#proto.Empty) | Remove a logical volume. |
 | ResizeLV | [ResizeLVRequest](#proto.ResizeLVRequest) | [Empty](#proto.Empty) | Resize a logical volume. |
+| CreateBackup | [CreateBackupRequest](#proto.CreateBackupRequest) | [CreateBackupResponse](#proto.CreateBackupResponse) | Create a logical volume. |
 
 
 <a name="proto.VGService"></a>

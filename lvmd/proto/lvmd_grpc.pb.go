@@ -23,6 +23,8 @@ type LVServiceClient interface {
 	RemoveLV(ctx context.Context, in *RemoveLVRequest, opts ...grpc.CallOption) (*Empty, error)
 	// Resize a logical volume.
 	ResizeLV(ctx context.Context, in *ResizeLVRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Create a logical volume.
+	CreateBackup(ctx context.Context, in *CreateBackupRequest, opts ...grpc.CallOption) (*CreateBackupResponse, error)
 }
 
 type lVServiceClient struct {
@@ -60,6 +62,15 @@ func (c *lVServiceClient) ResizeLV(ctx context.Context, in *ResizeLVRequest, opt
 	return out, nil
 }
 
+func (c *lVServiceClient) CreateBackup(ctx context.Context, in *CreateBackupRequest, opts ...grpc.CallOption) (*CreateBackupResponse, error) {
+	out := new(CreateBackupResponse)
+	err := c.cc.Invoke(ctx, "/proto.LVService/CreateBackup", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LVServiceServer is the server API for LVService service.
 // All implementations must embed UnimplementedLVServiceServer
 // for forward compatibility
@@ -70,6 +81,8 @@ type LVServiceServer interface {
 	RemoveLV(context.Context, *RemoveLVRequest) (*Empty, error)
 	// Resize a logical volume.
 	ResizeLV(context.Context, *ResizeLVRequest) (*Empty, error)
+	// Create a logical volume.
+	CreateBackup(context.Context, *CreateBackupRequest) (*CreateBackupResponse, error)
 	mustEmbedUnimplementedLVServiceServer()
 }
 
@@ -85,6 +98,9 @@ func (*UnimplementedLVServiceServer) RemoveLV(context.Context, *RemoveLVRequest)
 }
 func (*UnimplementedLVServiceServer) ResizeLV(context.Context, *ResizeLVRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResizeLV not implemented")
+}
+func (*UnimplementedLVServiceServer) CreateBackup(context.Context, *CreateBackupRequest) (*CreateBackupResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateBackup not implemented")
 }
 func (*UnimplementedLVServiceServer) mustEmbedUnimplementedLVServiceServer() {}
 
@@ -146,6 +162,24 @@ func _LVService_ResizeLV_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LVService_CreateBackup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBackupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LVServiceServer).CreateBackup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.LVService/CreateBackup",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LVServiceServer).CreateBackup(ctx, req.(*CreateBackupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _LVService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "proto.LVService",
 	HandlerType: (*LVServiceServer)(nil),
@@ -161,6 +195,10 @@ var _LVService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResizeLV",
 			Handler:    _LVService_ResizeLV_Handler,
+		},
+		{
+			MethodName: "CreateBackup",
+			Handler:    _LVService_CreateBackup_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -17,6 +17,7 @@ type LogicalVolumeSpec struct {
 	NodeName    string            `json:"nodeName"`
 	Size        resource.Quantity `json:"size"`
 	DeviceClass string            `json:"deviceClass,omitempty"`
+	DataSource  DataSource        `json:"dataSource,omitempty"`
 }
 
 // LogicalVolumeStatus defines the observed state of LogicalVolume
@@ -40,6 +41,13 @@ type LogicalVolume struct {
 
 	Spec   LogicalVolumeSpec   `json:"spec,omitempty"`
 	Status LogicalVolumeStatus `json:"status,omitempty"`
+}
+
+// DataSource is the Schema for the prepopulated pvs
+type DataSource struct {
+	Name       string `json:"name"`
+	Namespace  string `json:"namespace,omitempty"`
+	SourceType string `json:"sourceType,omitempty"`
 }
 
 // IsCompatibleWith returns true if the LogicalVolume is compatible.

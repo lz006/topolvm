@@ -1,0 +1,29 @@
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 8Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: topo
+    namespace: default
+    resourceVersion: "550394"
+    uid: b3380fd3-599a-4ff2-a297-f09dab688e66
+  csi:
+    driver: topolvm.cybozu.com
+    fsType: xfs
+    volumeAttributes:
+      storage.kubernetes.io/csiProvisionerIdentity: 1596625382925-8081-topolvm.cybozu.com
+    volumeHandle: 96781976-e822-4fcf-8971-f58daf124b09
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: topology.topolvm.cybozu.com/node
+          operator: In
+          values:
+          - node3
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: topolvm-provisioner-immediate
+  volumeMode: Filesystem

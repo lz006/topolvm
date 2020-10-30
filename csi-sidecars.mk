@@ -1,5 +1,5 @@
 # CSI sidecar versions
-EXTERNAL_PROVISIONER_VERSION = 1.6.0
+EXTERNAL_PROVISIONER_VERSION = 2.0.3-br-rev1
 EXTERNAL_ATTACHER_VERSION = 2.2.0
 EXTERNAL_RESIZER_VERSION = 1.0.0
 NODE_DRIVER_REGISTRAR_VERSION = 2.0.1
@@ -31,7 +31,7 @@ build: $(CSI_SIDECARS)
 external-provisioner:
 	rm -rf $(EXTERNAL_PROVISIONER_SRC)
 	mkdir -p $(EXTERNAL_PROVISIONER_SRC)
-	curl -sSLf https://github.com/kubernetes-csi/external-provisioner/archive/v$(EXTERNAL_PROVISIONER_VERSION).tar.gz | \
+	curl -sSLf  https://github.com/lz006/external-provisioner/archive/v$(EXTERNAL_PROVISIONER_VERSION).tar.gz | \
         tar zxf - --strip-components 1 -C $(EXTERNAL_PROVISIONER_SRC)
 	make -C $(EXTERNAL_PROVISIONER_SRC)
 	cp -f $(EXTERNAL_PROVISIONER_SRC)/bin/csi-provisioner $(OUTPUT_DIR)/

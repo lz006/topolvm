@@ -14,20 +14,20 @@ make generate
 make manifests
 
 # build lvmd
-CGO_ENABLED=0 go build -o ./build/lvmd -ldflags "-X github.com/topolvm/topolvm.Version=devel" ./pkg/lvmd && \
+make TOPOLVM_VERSION=0.6.0-br-rev1 build/lvmd && \
 chmod 777 build/lvmd
 scp ./build/lvmd root@10.0.0.67:/usr/local/bin/lvmd
 
 # build hypertopolvm PROD
 make build/hypertopolvm && \
-make image IMAGE_PREFIX=core.harbor.hub.sulzer.de/iac/ && \
-make tag IMAGE_PREFIX=core.harbor.hub.sulzer.de/iac/ IMAGE_TAG=0.1.30 && \
-docker push core.harbor.hub.sulzer.de/iac/topolvm:0.1.30
+make IMAGE_PREFIX=core.harbor.hub.sulzer.de/iac/ IMAGE_BUILD_ARGS='--build-arg="http_proxy=http://172.21.0.10:88"' image && \
+make tag IMAGE_PREFIX=core.harbor.hub.sulzer.de/iac/ IMAGE_TAG=0.6.0-br-rev1 && \
+docker push core.harbor.hub.sulzer.de/iac/topolvm:0.6.0-br-1
 
 # build hypertopolvm DEV
 make build/hypertopolvm-dev && \
 mv -f build/hypertopolvm-dev build/hypertopolvm && \
-make image IMAGE_PREFIX=core.harbor.hub.sulzer.de/iac/ && \
+make IMAGE_PREFIX=core.harbor.hub.sulzer.de/iac/ IMAGE_BUILD_ARGS='--build-arg="http_proxy=http://172.21.0.10:88"' image && \
 make tag IMAGE_PREFIX=core.harbor.hub.sulzer.de/iac/ IMAGE_TAG=0.1.27 && \
 docker push core.harbor.hub.sulzer.de/iac/topolvm:0.1.27
 
@@ -162,9 +162,3 @@ lvmd
 
 
 
-
-## Notes
-{"level":"info","ts":1603805613.8212075,"logger":"driver.node","msg":"NodePublishVolume called","volume_id":"29679795-e929-4077-be27-4db75084a53e","publish_context":null,"target_path":"/var/lib/kubelet/pods/b5b4fd74-c50a-498d-8b41-0aa3e235045a/volumes/kubernetes.io~csi/pvc-30cc271c-3101-4d1e-91a5-7a6447a3fca4/mount","volume_capability":"mount:<fs_type:\"xfs\" > access_mode:<mode:SINGLE_NODE_WRITER > ","read_only":false,"num_secrets":0,"volume_context":{"csi.storage.k8s.io/ephemeral":"false","csi.storage.k8s.io/pod.name":"pg-deployment-57448b4658-77t76","csi.storage.k8s.io/pod.namespace":"default","csi.storage.k8s.io/pod.uid":"b5b4fd74-c50a-498d-8b41-0aa3e235045a","csi.storage.k8s.io/serviceAccount.name":"default","storage.kubernetes.io/csiProvisionerIdentity":"1603792446316-8081-topolvm.cybozu.com"}}
-{"level":"info","ts":1603805614.276511,"logger":"filesystem.xfs","msg":"xfs: created","device":"/dev/topolvm/29679795-e929-4077-be27-4db75084a53e"}
-{"level":"info","ts":1603805614.3282583,"logger":"driver.node","msg":"NodePublishVolume(fs) succeeded","volume_id":"29679795-e929-4077-be27-4db75084a53e","target_path":"/var/lib/kubelet/pods/b5b4fd74-c50a-498d-8b41-0aa3e235045a/volumes/kubernetes.io~csi/pvc-30cc271c-3101-4d1e-91a5-7a6447a3fca4/mount","fstype":"xfs"}
-{"level":"info","ts":1603805630.1140563,"logger":"driver.identity","msg":"Probe","req":""}

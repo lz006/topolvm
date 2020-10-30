@@ -103,7 +103,8 @@ csi-sidecars:
 
 .PHONY: image
 image:
-	docker build -t $(IMAGE_PREFIX)topolvm:devel .
+	#docker build --build-arg="http_proxy=http://172.21.0.10:88" -t $(IMAGE_PREFIX)topolvm:devel .
+	docker build $(IMAGE_BUILD_ARGS) -t $(IMAGE_PREFIX)topolvm:devel .
 
 .PHONY: tag
 tag:
